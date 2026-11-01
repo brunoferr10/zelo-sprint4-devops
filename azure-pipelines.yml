@@ -1,0 +1,64 @@
+trigger:
+  branches:
+    include:
+      - master
+pr: none
+pool:
+  vmImage: ubuntu-latest
+variables:
+  azureServiceConnection: MyAzureSubscription
+stages:
+- stage: CI
+  displayName: CI - build, testes e artefato
+  jobs:
+  - job: BuildTest
+    steps:
+    - checkout: self
+    - task: JavaToolInstaller@0
+      inputs:
+        versionSpec: '21'
+        jdkArchitectureOption: x64
+        jdkSourceOption: PreInstalled
+    - task: Maven@4
+      displayName: Compilar e executar testes automaticos
+      inputs:
+        mavenPomFile: pom.xml
+        goals: clean verify
+        options: '-B -DfailIfNoTests=true'
+        publishJUnitResults: true
+        testResultsFiles: '**/surefire-reports/TEST-*.xml'
+        javaHomeOption: JDKVersion
+        jdkVersionOption: '1.21'
+    - bash: |
+        mkdir -p "$(Build.ArtifactStagingDirectory)/app"
+        cp target/zelo-api-1.0.0.jar "$(Build.ArtifactStagingDirectory)/app/app.jar"
+      displayName: Preparar JAR aprovado nos testes
+    - task: PublishPipelineArtifact@1
+      inputs:
+        targetPath: '$(Build.ArtifactStagingDirectory)/app'
+        artifact: app
+- stage: CD
+  displayName: CD - imagem e deploy ACI
+  dependsOn: CI
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+  jobs:
+  - job: DeployACI
+    steps:
+    - checkout: self
+    - task: DownloadPipelineArtifact@2
+      inputs:
+        buildType: current
+        artifactName: app
+        targetPath: '$(Pipeline.Workspace)/app'
+    - task: AzureCLI@2
+      displayName: Construir imagem do artefato e atualizar ACI
+      inputs:
+        azureSubscription: '$(azureServiceConnection)'
+        scriptType: bash
+        scriptLocation: scriptPath
+        scriptPath: scripts/04-deploy-cicd.sh
+      env:
+        MYSQL_USER: $(MYSQL_USER)
+        MYSQL_PASSWORD: $(MYSQL_PASSWORD)
+        IMAGE_TAG: $(Build.BuildId)
+        ARTIFACT_DIR: $(Pipeline.Workspace)/app

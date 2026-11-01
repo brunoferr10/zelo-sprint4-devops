@@ -1,0 +1,7 @@
+FROM eclipse-temurin:21-jre-jammy
+RUN groupadd --gid 10001 zelo && useradd --uid 10001 --gid zelo --create-home zelo
+WORKDIR /app
+COPY --chown=zelo:zelo app.jar /app/app.jar
+USER 10001:10001
+EXPOSE 8080
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]
