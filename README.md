@@ -3,6 +3,70 @@
 
 **Turma:** 2TDSR · **Professor:** João Menk · **Branch de integração:** `master`
 
+> **Ambiente escolhido: Linux.** O desenvolvimento será realizado em uma VM Ubuntu Server 24.04 LTS na Azure. O destino planejado, seguindo o exemplo Java da aula, é Azure Web App Linux com Oracle FIAP. **A migração ainda não está implementada:** o código, os scripts e o YAML atualmente fornecidos usam ACI/MySQL. As seções de infraestrutura ACI/MySQL abaixo documentam essa implementação e não devem ser executadas no novo caminho antes da adaptação do projeto.
+
+## Ambiente Linux e adaptação para o modelo da aula
+
+### Papel de cada ambiente
+
+| Componente | Uso | Situação |
+|---|---|---|
+| VM Ubuntu Server 24.04 LTS x64 | Terminal Bash, Git, Java 21, Maven e edição do projeto | Ambiente escolhido; criação pendente |
+| GitHub / master | Código-fonte e alterações que disparam o CI | Repositório existente |
+| Azure DevOps | Build, testes, artefato e deploy automático | Configuração e validação pendentes |
+| Azure Web App Linux | Destino planejado para executar o JAR Java | Exige adaptação do YAML e provisionamento |
+| Oracle FIAP | Banco planejado, conforme exercício Java do professor | Exige driver, configuração, DDL e validação |
+| ACI / MySQL / ACR | Implementação atualmente presente nos arquivos | Caminho anterior; não executar para o novo modelo |
+
+A VM Ubuntu é a estação de trabalho e não substitui o Web App como destino da aplicação. O YAML atual usa agente hospedado `ubuntu-latest`; criar uma VM não a registra automaticamente como agente da pipeline. Ubuntu Server é administrado por SSH e não inclui interface gráfica por padrão; navegador e gravação podem permanecer no computador local enquanto os comandos e a edição são realizados na VM.
+
+### Criação da VM Ubuntu no Portal Azure
+
+1. Abra Máquinas virtuais → Criar → Máquina virtual do Azure.
+2. Crie o grupo `rg-zelo-s4-vm` e nomeie a VM `vm-zelo-sprint4`.
+3. Escolha região permitida pela assinatura, imagem Ubuntu Server 24.04 LTS x64 e tamanho compatível com o orçamento (referência: Standard_B2s, se disponível).
+4. Configure usuário `bruno` e autenticação por chave SSH. Guarde a chave privada se gerar um novo par.
+5. Permita somente SSH na porta 22 para o seu IP de origem, ajustando a regra de rede. Não é necessário expor as portas 8080 ou 3306 da VM para este modelo.
+6. Revise o custo e crie a VM. Em Conectar → SSH, obtenha o IP e o comando correspondente.
+
+No computador local, use o caminho real da chave e o IP público da VM:
+
+```bash
+ssh -i /caminho/para/sua-chave.pem bruno@IP_PUBLICO_DA_VM
+```
+
+Na VM, prepare Git, JDK 21, Maven e Azure CLI. Confira as instalações antes de continuar:
+
+```bash
+cat /etc/os-release
+java -version
+mvn -version
+git --version
+az version
+```
+
+Depois clone o projeto:
+
+```bash
+git clone https://github.com/brunoferr10/zelo-sprint4-devops.git
+cd zelo-sprint4-devops
+git switch master
+```
+
+### Arquivos que precisam acompanhar a migração
+
+- `pom.xml`: substituir o driver MySQL pelo driver Oracle compatível.
+- Entidades JPA e schema: revisar geração dos IDs, tipos e restrições para Oracle.
+- `application.properties`: configurar datasource Oracle por variáveis de ambiente.
+- `script_bd.sql` e `docs/consultas-evidencia.sql`: adaptar DDL e consultas para Oracle.
+- `azure-pipelines.yml`: manter CI com testes e publicação do JAR; substituir CD ACR/ACI por configuração e deploy no Web App Linux.
+- Scripts de infraestrutura, diagrama e documentos auxiliares: representar VM Ubuntu, Web App, Oracle FIAP e o fluxo efetivamente implantado.
+- Validar CI/CD e CRUD real no Oracle antes de marcar a migração como concluída.
+
+**Atualizar este README não altera o código nem a pipeline.** Até a entrega dos arquivos adaptados, utilize a VM apenas para preparar as ferramentas e clonar o projeto. As instruções ACI/MySQL abaixo são referência da versão atual, não o roteiro de execução para Web App/Oracle.
+
+A VM tem ciclo de vida separado dos recursos da aplicação: o script atual de exclusão da aplicação não remove `rg-zelo-s4-vm`. Ao encerrar o trabalho, confira a desalocação da VM e os custos de disco/IP que podem permanecer.
+
 ## 1. Integrantes
 
 | Nome completo | RM | Turma |
@@ -127,7 +191,7 @@ Os nomes são configurações previstas, não comprovantes de recursos já criad
 - JDK 21 e Maven para executar os testes na máquina de desenvolvimento.
 - Navegador e Swagger/Postman; cliente MySQL está disponível dentro do ACI do banco.
 
-Docker local não é necessário no caminho principal: as imagens são construídas no ACR Tasks. A VM é opcional como estação de trabalho; o destino obrigatório de deploy escolhido é o ACI.
+Docker local não é necessário no caminho principal: as imagens são construídas no ACR Tasks. A estação de trabalho escolhida agora é a VM Ubuntu. O destino do YAML atual ainda é ACI; Web App Linux é o destino da migração planejada.
 
 ```bash
 git clone https://github.com/brunoferr10/zelo-sprint4-devops.git
@@ -135,7 +199,7 @@ cd zelo-sprint4-devops
 git switch master
 ```
 
-## 8. Provisionamento inicial na Azure
+## 8. Provisionamento ACI/MySQL — referência anterior, não executar na migração
 
 Execute na raiz do clone, em Bash, uma instrução por vez. Confira a assinatura antes de criar recursos.
 
