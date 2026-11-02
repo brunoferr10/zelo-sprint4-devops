@@ -9,19 +9,36 @@ import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 import java.net.URI;
 import java.util.List;
+import java.time.LocalDate;
+import org.springframework.format.annotation.DateTimeFormat;
+import br.com.fiap.zelo.dto.ResumoCuidados;
+import br.com.fiap.zelo.service.CuidadoConsultaService;
 
 @RestController
 @RequestMapping("/api/cuidados")
 public class CuidadoController {
     private final CuidadoRepository repository;
     private final PetRepository petRepository;
-    public CuidadoController(CuidadoRepository repository, PetRepository petRepository) {
+    private final CuidadoConsultaService consulta;
+    public CuidadoController(CuidadoRepository repository, PetRepository petRepository, CuidadoConsultaService consulta) {
+        this.consulta = consulta;
         this.repository = repository; this.petRepository = petRepository;
     }
 
     @GetMapping
-    public List<Cuidado> listar(@RequestParam(required = false) Long petId) {
-        return petId == null ? repository.findAll() : repository.findByPetId(petId);
+    public List<Cuidado> listar(@RequestParam(required = false) Long petId,
+            @RequestParam(required = false) StatusCuidado status,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataInicio,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataFim) {
+        return consulta.listar(petId, status, dataInicio, dataFim);
+    }
+
+    @GetMapping("/resumo")
+    public ResumoCuidados resumo(@RequestParam(required = false) Long petId,
+            @RequestParam(required = false) StatusCuidado status,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataInicio,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataFim) {
+        return consulta.resumir(petId, status, dataInicio, dataFim);
     }
 
     @GetMapping("/{id}")

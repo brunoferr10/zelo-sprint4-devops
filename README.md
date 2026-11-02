@@ -1,71 +1,6 @@
-# Zelo — Sprint 4
-## DevOps Tools & Cloud Computing — FIAP
+# Zelo — Sprint 4 — DevOps Tools & Cloud Computing
 
-**Turma:** 2TDSR · **Professor:** João Menk · **Branch de integração:** `master`
-
-> **Ambiente escolhido: Linux.** O desenvolvimento será realizado em uma VM Ubuntu Server 24.04 LTS na Azure. O destino planejado, seguindo o exemplo Java da aula, é Azure Web App Linux com Oracle FIAP. **A migração ainda não está implementada:** o código, os scripts e o YAML atualmente fornecidos usam ACI/MySQL. As seções de infraestrutura ACI/MySQL abaixo documentam essa implementação e não devem ser executadas no novo caminho antes da adaptação do projeto.
-
-## Ambiente Linux e adaptação para o modelo da aula
-
-### Papel de cada ambiente
-
-| Componente | Uso | Situação |
-|---|---|---|
-| VM Ubuntu Server 24.04 LTS x64 | Terminal Bash, Git, Java 21, Maven e edição do projeto | Ambiente escolhido; criação pendente |
-| GitHub / master | Código-fonte e alterações que disparam o CI | Repositório existente |
-| Azure DevOps | Build, testes, artefato e deploy automático | Configuração e validação pendentes |
-| Azure Web App Linux | Destino planejado para executar o JAR Java | Exige adaptação do YAML e provisionamento |
-| Oracle FIAP | Banco planejado, conforme exercício Java do professor | Exige driver, configuração, DDL e validação |
-| ACI / MySQL / ACR | Implementação atualmente presente nos arquivos | Caminho anterior; não executar para o novo modelo |
-
-A VM Ubuntu é a estação de trabalho e não substitui o Web App como destino da aplicação. O YAML atual usa agente hospedado `ubuntu-latest`; criar uma VM não a registra automaticamente como agente da pipeline. Ubuntu Server é administrado por SSH e não inclui interface gráfica por padrão; navegador e gravação podem permanecer no computador local enquanto os comandos e a edição são realizados na VM.
-
-### Criação da VM Ubuntu no Portal Azure
-
-1. Abra Máquinas virtuais → Criar → Máquina virtual do Azure.
-2. Crie o grupo `rg-zelo-s4-vm` e nomeie a VM `vm-zelo-sprint4`.
-3. Escolha região permitida pela assinatura, imagem Ubuntu Server 24.04 LTS x64 e tamanho compatível com o orçamento (referência: Standard_B2s, se disponível).
-4. Configure usuário `bruno` e autenticação por chave SSH. Guarde a chave privada se gerar um novo par.
-5. Permita somente SSH na porta 22 para o seu IP de origem, ajustando a regra de rede. Não é necessário expor as portas 8080 ou 3306 da VM para este modelo.
-6. Revise o custo e crie a VM. Em Conectar → SSH, obtenha o IP e o comando correspondente.
-
-No computador local, use o caminho real da chave e o IP público da VM:
-
-```bash
-ssh -i /caminho/para/sua-chave.pem bruno@IP_PUBLICO_DA_VM
-```
-
-Na VM, prepare Git, JDK 21, Maven e Azure CLI. Confira as instalações antes de continuar:
-
-```bash
-cat /etc/os-release
-java -version
-mvn -version
-git --version
-az version
-```
-
-Depois clone o projeto:
-
-```bash
-git clone https://github.com/brunoferr10/zelo-sprint4-devops.git
-cd zelo-sprint4-devops
-git switch master
-```
-
-### Arquivos que precisam acompanhar a migração
-
-- `pom.xml`: substituir o driver MySQL pelo driver Oracle compatível.
-- Entidades JPA e schema: revisar geração dos IDs, tipos e restrições para Oracle.
-- `application.properties`: configurar datasource Oracle por variáveis de ambiente.
-- `script_bd.sql` e `docs/consultas-evidencia.sql`: adaptar DDL e consultas para Oracle.
-- `azure-pipelines.yml`: manter CI com testes e publicação do JAR; substituir CD ACR/ACI por configuração e deploy no Web App Linux.
-- Scripts de infraestrutura, diagrama e documentos auxiliares: representar VM Ubuntu, Web App, Oracle FIAP e o fluxo efetivamente implantado.
-- Validar CI/CD e CRUD real no Oracle antes de marcar a migração como concluída.
-
-**Atualizar este README não altera o código nem a pipeline.** Até a entrega dos arquivos adaptados, utilize a VM apenas para preparar as ferramentas e clonar o projeto. As instruções ACI/MySQL abaixo são referência da versão atual, não o roteiro de execução para Web App/Oracle.
-
-A VM tem ciclo de vida separado dos recursos da aplicação: o script atual de exclusão da aplicação não remove `rg-zelo-s4-vm`. Ao encerrar o trabalho, confira a desalocação da VM e os custos de disco/IP que podem permanecer.
+Professor João Menk · Branch master · VM de trabalho Ubuntu · Deploy Azure Web App Linux · Banco Oracle FIAP
 
 ## 1. Integrantes
 
@@ -78,523 +13,322 @@ A VM tem ciclo de vida separado dos recursos da aplicação: o script atual de e
 | Gabriel Robertoni Padilha | 566293 | 2TDSR |
 
 
-## 2. Descrição da solução
 
-O Zelo aproxima tutores e clínicas veterinárias por meio do acompanhamento preventivo de pets. A aplicação mantém o cadastro dos animais e seus cuidados, como vacinas, consultas, exames e medicamentos. Isso ajuda a centralizar o histórico, organizar retornos e reduzir o esquecimento de cuidados importantes.
+## 2. Solução e escopo
 
-A API disponibiliza inclusão, consulta, atualização e exclusão de **Pets** e **Cuidados**, com relacionamento de um pet para vários cuidados. A página inicial permite identificar a versão implantada; o Swagger permite executar as operações REST.
+Zelo mantém pets e seus cuidados preventivos, como consultas, vacinas e exames. A API Spring Boot oferece CRUD, validação, relacionamento 1:N e Swagger. O foco deste pacote é DevOps: CI/CD, artefatos, testes, deploy e evidência de persistência.
 
-Esta Sprint acrescenta integração e implantação contínuas no **Azure DevOps**. Um push na `master` dispara build e testes, publica um JAR como artefato e, após sucesso, implanta a aplicação no **Azure Container Instances (ACI)**. O banco de entrega é **MySQL em ACI na Azure**, com volume persistente.
+Esta aplicação Java é a base própria desta entrega DevOps e não depende da entrega de outra disciplina ou de outro integrante. Mantém o CRUD da Sprint 3 e acrescenta consulta combinada de cuidados por pet, status e período, resumo preventivo e painel web. A persistência foi adaptada para Oracle FIAP.
 
-## 3. Links da entrega e estado de validação
+### Evolução funcional da Sprint 3 para a Sprint 4
 
-| Item | Link / estado |
+| Sprint 3 | Sprint 4 |
 |---|---|
-| Repositório GitHub | https://github.com/brunoferr10/zelo-sprint4-devops |
-| Azure DevOps | **Pendente:** inserir URL real do projeto após criação |
-| Vídeo YouTube | **Pendente:** inserir URL real acessível ao professor após gravação |
-| Aplicação Azure | **Pendente:** inserir URL real retornada pelo deploy |
-| CI/CD e testes na Azure | **Pendente de execução e comprovação** |
+| CRUD de Pets/Cuidados e filtro por pet | CRUD preservado; filtros combináveis por pet, status e período inclusivo |
+| Página de confirmação | Painel com filtros, tabela e totais atualizados pela API |
+| Sem resumo preventivo | Pendentes, atrasados, concluídos e cancelados em /api/cuidados/resumo |
+| Sem CI/CD Azure DevOps | Build, testes, publicação do JAR e deploy Web App automáticos |
 
-Os arquivos de implementação estão disponíveis neste repositório. Os itens pendentes só devem ser marcados como concluídos depois da validação real. A preparação deste pacote não executou o deploy na assinatura Azure do grupo. A tentativa local de Maven foi impedida por falha de resolução de rede para baixar dependências; portanto, não há resultado local de testes aprovado a declarar.
+GET /api/cuidados e GET /api/cuidados/resumo aceitam `petId`, `status`, `dataInicio` e `dataFim` opcionais. Datas ISO `yyyy-MM-dd`, período inclusivo; pode informar somente um limite. Status: PENDENTE, ATRASADO, CONCLUIDO, CANCELADO. Lista ordenada por data prevista e ID. Período invertido, data inválida ou status inválido retornam 400. Sem resultados: lista vazia e resumo com zeros.
 
-## 4. Stack de tecnologias
+Exemplo: `/api/cuidados?status=PENDENTE&dataInicio=2026-11-01&dataFim=2026-12-31`. O resumo aplica os mesmos filtros. Nele, PENDENTE com data anterior ao dia atual em UTC conta como atrasado, e ATRASADO explícito também; CONCLUIDO/CANCELADO não contam como atraso. Categorias não se sobrepõem e somam o total. O filtro por status usa o valor salvo no banco. O cálculo não altera status nem grava no banco.
 
-| Tecnologia | Uso |
+A página `/` consome essas rotas, exibe carregamento/erro/estado vazio e oferece acesso ao Swagger para o CRUD. Não há mudança de schema para esses novos recursos: consultas usam colunas existentes.
+
+## 3. Links e situação
+
+| Item | Valor |
 |---|---|
-| Java 21 / Spring Boot 3.4.5 | API e página inicial |
-| Spring Web / Bean Validation | Endpoints REST e validação das entradas |
-| Spring Data JPA / Hibernate | Persistência e relacionamento das entidades |
-| MySQL 8.4 / Connector J | Banco de dados da aplicação em nuvem |
-| Springdoc OpenAPI / Swagger UI | Documentação interativa e execução do CRUD |
-| Actuator | Verificação de saúde da aplicação |
-| Maven | Compilação, execução de testes e empacotamento JAR |
-| JUnit / MockMvc / H2 | Testes automatizados do CI; H2 somente no perfil de teste |
-| Git / GitHub | Histórico e repositório fonte conectado ao Azure Pipelines |
-| Azure DevOps / Azure Pipelines | Orquestração de CI/CD e resultados dos testes |
-| Pipeline Artifacts | Publicação e download do JAR aprovado pelo CI |
-| Docker / Eclipse Temurin 21 JRE | Imagem de execução do JAR |
-| ACR / ACR Tasks | Construção e armazenamento das imagens |
-| ACI | Execução separada da API e do MySQL |
-| Azure Files | Persistência dos arquivos do MySQL |
-| Key Vault | Armazenamento de credenciais da infraestrutura |
-| Azure CLI / Bash | Provisionamento e atualização dos recursos |
+| GitHub | https://github.com/brunoferr10/zelo-sprint4-devops |
+| Azure DevOps | PENDENTE: inserir link real |
+| YouTube | PENDENTE: inserir link real |
+| Aplicação | PENDENTE: inserir URL HTTPS retornada pela Azure |
+| Deploy e testes online | PENDENTES de execução na assinatura do grupo |
 
-**Distinção dos ambientes:** H2 é uma dependência de escopo `test`, usada pelos testes automatizados. A aplicação implantada e as evidências do vídeo utilizam MySQL na Azure. Execução em localhost não constitui a entrega.
+Este pacote substitui o caminho ACR/ACI/MySQL. Não execute scripts antigos desses recursos. Os scripts novos criam VM Ubuntu e Web App Linux; Oracle FIAP já é um serviço externo, não é criado na VM.
 
-## 5. Arquitetura e fluxo CI/CD
+## 4. Stack e arquitetura
 
-![Arquitetura Azure e fluxo numerado de CI/CD](docs/arquitetura-azure.svg)
+Java 21, Spring Boot 3.4.5, Spring Web, JPA/Hibernate, Bean Validation, Oracle JDBC, Oracle FIAP, Swagger e Actuator. Maven, JUnit, MockMvc e H2 em escopo test. GitHub, Azure DevOps, Pipeline Artifacts, Azure CLI, VM Ubuntu Server 24.04 e Azure App Service Linux Java SE 21.
 
-O desenho representa personas, recursos e conexões da solução. A arquitetura inclui o desenvolvedor, o usuário final/avaliador, GitHub, Azure DevOps, artefatos, ACR, ACI da API, ACI MySQL, Azure Files e Key Vault.
+![Arquitetura e fluxo CI/CD](docs/arquitetura-azure.svg)
 
-| Ordem | Origem → destino | O que acontece |
-|---|---|---|
-| 1 | Desenvolvedor → GitHub | Alteração em código e push na branch `master` |
-| 2 | GitHub → Azure Pipelines CI | Trigger inicia configuração Java 21, build e testes |
-| 3 | CI → Pipeline Artifacts | Publicação de `app/app.jar` após sucesso dos testes |
-| 4 | Pipeline Artifacts → CD | Download do artefato da mesma execução aprovada |
-| 5 | CD → ACR Tasks / ACR | Construção da imagem a partir desse JAR; tag igual a `Build.BuildId` |
-| 6 | CD / ACR → ACI da API | Atualização automática do container e verificação de saúde |
-| 7 | Usuário final / avaliador → API | Acesso à página inicial e ao Swagger pelo FQDN público |
-| 8 | API → MySQL → Azure Files | CRUD via JDBC; arquivos do banco persistidos no volume |
-
-As variáveis secretas do Azure DevOps chegam ao ACI por `--secure-environment-variables`. A conexão de serviço autoriza as operações Azure. Key Vault guarda credenciais definidas na preparação da infraestrutura; o CD atual obtém a credencial do ACR pela Azure CLI e recebe as credenciais MySQL pelas variáveis secretas da pipeline.
-
-### Recursos previstos pelos scripts
-
-| Recurso | Nome padrão | Responsabilidade |
-|---|---|---|
-| Grupo de recursos | `rg-zelo-s4-rm563489` | Agrupar recursos da Sprint 4 |
-| ACR | `zelos4acr563489` | Imagens da API e banco |
-| ACI aplicação | `rm563489-zelos4-app` | API na porta 8080, usuário Linux 10001 |
-| ACI banco | `rm563489-zelos4-db` | MySQL na porta 3306 |
-| Storage Account | `zelos4data563489` | Armazenamento do compartilhamento Azure Files |
-| Compartilhamento | `zelo-mysql-data` | Montagem em `/var/lib/mysql` |
-| Key Vault | `kv-zelos4-563489` | Segredos de infraestrutura |
-| Região | `canadacentral` | Local padrão dos recursos |
-
-Os nomes são configurações previstas, não comprovantes de recursos já criados. Estão em `scripts/00-configurar-ambiente.sh` e isolam a Sprint 4 da Sprint 3. Altere antes do provisionamento se a região não estiver permitida ou algum nome global estiver indisponível.
-
-## 6. Estrutura do repositório
-
-| Caminho | Conteúdo |
+| Ordem | Fluxo |
 |---|---|
-| `azure-pipelines.yml` | Estágios CI e CD |
-| `pom.xml` | Versões, dependências e empacotamento Maven |
-| `src/main/java/` | Controllers, modelos, DTOs, repositórios e tratamento de erros |
-| `src/main/resources/application.properties` | Configuração da API e datasource por ambiente |
-| `src/main/resources/static/index.html` | Página a alterar no vídeo para comprovar o deploy |
-| `src/test/java/br/com/fiap/zelo/CrudIntegrationTest.java` | Testes automatizados |
-| `src/test/resources/application-test.properties` | Banco isolado para testes |
-| `scripts/00-configurar-ambiente.sh` | Nomes e região dos recursos |
-| `scripts/01-criar-recursos.sh` | Provisionamento de ACR, Storage, Files e Key Vault |
-| `scripts/02-build-push.sh` | Build remoto da imagem inicial do banco no ACR |
-| `scripts/03-deploy-banco.sh` | Implantação inicial do MySQL com volume |
-| `scripts/04-deploy-cicd.sh` | Build da imagem da API a partir do artefato e deploy ACI |
-| `scripts/06-excluir-recursos.sh` | Exclusão do grupo após a avaliação |
-| `docker/app/Dockerfile.cicd` | Imagem de execução que recebe `app.jar` |
-| `docker/db/Dockerfile` / `script_bd.sql` | Imagem MySQL e inicialização do schema |
-| `postman/Zelo.postman_collection.json` | Coleção de chamadas REST |
-| `docs/arquitetura-azure.svg` | Desenho de arquitetura |
-| `docs/consultas-evidencia.sql` | Consultas para comprovação de persistência |
-| `docs/CONFIGURAR-AZURE.md` | Guia complementar de configuração |
-| `docs/roteiro-video.md` / `docs/ENTREGA.md` | Apoio ao vídeo e dados para o PDF |
-| `docker-compose.yml` / `docker/app/Dockerfile` | Apoio opcional ao desenvolvimento local |
+| 1 | Desenvolvedor na VM Ubuntu edita código e faz push na master do GitHub |
+| 2 | Azure Pipelines executa build Maven e testes em agente ubuntu-latest |
+| 3 | CI publica JAR aprovado como artefato app/app.jar |
+| 4 | CD baixa o artefato da mesma execução após CI aprovado |
+| 5 | Conexão Azure Resource Manager configura datasource com variáveis secretas |
+| 6 | AzureWebApp@1 implanta o JAR no Web App Linux |
+| 7 | Usuário/avaliador acessa página e Swagger por HTTPS |
+| 8 | Aplicação faz CRUD via JDBC no Oracle FIAP; aluno comprova com SELECT |
 
-## 7. Pré-requisitos e clone
+A VM é estação de trabalho; não é o destino de deploy nem agente próprio automaticamente. Navegador e gravação podem ficar no computador local, com SSH/VS Code Remote SSH na VM. Ubuntu Server não inclui área de trabalho gráfica.
 
-- Conta GitHub com permissão de escrita neste repositório.
-- Organização Azure DevOps e permissão para criar projeto, pipeline e conexão de serviço.
-- Assinatura Azure ativa, saldo/orçamento e permissão para provisionar recursos.
-- Bash e Azure CLI para infraestrutura; Cloud Shell ou VM podem ser usados.
-- JDK 21 e Maven para executar os testes na máquina de desenvolvimento.
-- Navegador e Swagger/Postman; cliente MySQL está disponível dentro do ACI do banco.
+## 5. Estrutura
 
-Docker local não é necessário no caminho principal: as imagens são construídas no ACR Tasks. A estação de trabalho escolhida agora é a VM Ubuntu. O destino do YAML atual ainda é ACI; Web App Linux é o destino da migração planejada.
-
-```bash
-git clone https://github.com/brunoferr10/zelo-sprint4-devops.git
-cd zelo-sprint4-devops
-git switch master
-```
-
-## 8. Provisionamento ACI/MySQL — referência anterior, não executar na migração
-
-Execute na raiz do clone, em Bash, uma instrução por vez. Confira a assinatura antes de criar recursos.
-
-```bash
-az login
-az account show --output table
-# Somente se necessário:
-# az account set --subscription "ID_DA_ASSINATURA"
-```
-
-Digite credenciais próprias no prompt. Os valores digitados para senhas não são exibidos. Não use o usuário reservado `root` como `MYSQL_USER`.
-
-```bash
-read -r -p 'Usuario MySQL: ' MYSQL_USER
-read -r -s -p 'Senha MySQL: ' MYSQL_PASSWORD
-echo
-read -r -s -p 'Senha root MySQL: ' MYSQL_ROOT_PASSWORD
-echo
-export MYSQL_USER MYSQL_PASSWORD MYSQL_ROOT_PASSWORD
-
-bash scripts/01-criar-recursos.sh
-bash scripts/02-build-push.sh
-bash scripts/03-deploy-banco.sh
-```
-
-O script 01 usa `az ad signed-in-user show` para dar acesso ao Key Vault ao usuário conectado; execute essa preparação com login interativo de usuário que tenha permissão de configurar a política do cofre. O CD usa sua própria conexão de serviço e não executa essa preparação.
-
-Confira os logs e espere o MySQL ficar pronto antes do primeiro CD:
-
-```bash
-az container logs --resource-group rg-zelo-s4-rm563489 --name rm563489-zelos4-db
-```
-
-Aguarde a mensagem `ready for connections`. O `script_bd.sql` cria as tabelas e os registros iniciais quando `/var/lib/mysql` está vazio. Não remova o volume para atualizar a aplicação; ele guarda os dados. As senhas de inicialização devem corresponder às variáveis da pipeline. Alterar uma variável não troca automaticamente a senha de um banco já inicializado.
-
-O banco do laboratório tem endpoint público, seguindo a arquitetura acadêmica em containers. Não use dados reais ou sensíveis. Para produção, a arquitetura precisa de rede privada e transporte criptografado; os scripts atuais não implementam essas proteções.
-
-## 9. Criação do projeto Azure DevOps
-
-| Campo | Configuração exigida |
+| Arquivo/pasta | Função |
 |---|---|
-| Project Name | `Sprint 4 – Azure DevOps` |
-| Description | `Projeto para entrega da Sprint 4 do professor João Menk`, seguido de nomes, RMs e turmas da seção 1 |
-| Visibility | `Private` |
-| Version control | `Git` |
-| Work item process | `Scrum` ou `Agile` |
+| azure-pipelines.yml | CI com testes/artefato e CD Web App |
+| scripts/00-config.sh | Região e nomes dos recursos |
+| scripts/01-criar-vm-linux.sh | VM Ubuntu por Azure CLI no Cloud Shell |
+| scripts/02-preparar-ubuntu.sh | Git, JDK 21, Maven e Azure CLI na VM |
+| scripts/03-criar-webapp.sh | App Service Plan e Web App Java Linux |
+| scripts/04-configurar-datasource.py | Configura segredos no Web App sem imprimi-los |
+| scripts/05-testar-webapp.sh | Verifica saúde do deploy |
+| scripts/06-encerrar.sh | Desaloca a VM e documenta limpeza posterior |
+| script_bd.sql | DDL Oracle, sequências e dados iniciais |
+| docs/consultas-evidencia.sql | SELECTs para cada operação CRUD |
+| src/main / src/test | Aplicação e testes automáticos |
+| postman/ | Coleção REST |
+| docs/ENTREGA.md | Dados para gerar PDF final após preencher links |
 
-O código usado pela pipeline fica neste GitHub. Criar o projeto com Git habilita Azure Repos, mas a pipeline deve ser conectada ao repositório GitHub efetivamente atualizado pelo grupo.
+## 6. Preparar o repositório
 
-### Acesso do professor
-
-1. Confirme o e-mail institucional correto nos materiais/FIAP antes do convite.
-2. Em **Organization settings → Users → Add users**, adicione o professor com nível de acesso **Basic** e acesso ao projeto.
-3. Em **Project settings → Permissions → Project Administrators**, inclua o professor, seguindo o print da entrega.
-4. Confira o usuário, o nível Basic e a associação ao projeto. Mantenha o acesso até a correção.
-5. Confira também a acessibilidade do vídeo. Falta de acesso do professor pode zerar a avaliação.
-
-## 10. Conexão de serviço e variáveis protegidas
-
-### Conexão Azure
-
-1. Abra **Project settings → Service connections → New service connection**.
-2. Escolha **Azure Resource Manager** e, quando disponível, **Workload identity federation**.
-3. Selecione sua assinatura e o grupo `rg-zelo-s4-rm563489`.
-4. Nomeie a conexão **`MyAzureSubscription`**, exatamente como no YAML.
-5. Autorize a pipeline a usar a conexão.
-
-A identidade deve poder atualizar ACI, executar ACR Tasks e consultar credenciais do ACR no grupo. O papel Contributor no grupo costuma cobrir essas operações de controle; políticas da assinatura podem exigir ajuste pelo administrador. Não use tokens ou senhas diretamente no YAML.
-
-### Variáveis
-
-| Nome | Onde configurar | Proteção / finalidade |
-|---|---|---|
-| `MYSQL_USER` | Variables da pipeline | Marcar secreta; mesmo usuário criado no banco |
-| `MYSQL_PASSWORD` | Variables da pipeline | Marcar secreta; mesma senha criada no banco |
-| `MYSQL_ROOT_PASSWORD` | Sessão Bash da preparação | Senha de inicialização root; não é exigida pelo CD |
-| `azureServiceConnection` | YAML | Nome não sensível da conexão `MyAzureSubscription` |
-| `IMAGE_TAG` | Injetada pelo YAML | `Build.BuildId`, sem preenchimento manual |
-| `ARTIFACT_DIR` | Injetada pelo YAML | Caminho do artefato baixado |
-| `SPRING_DATASOURCE_URL` | Script do CD | Gerada com FQDN do banco, sem senha embutida |
-| `SPRING_DATASOURCE_USERNAME` | ACI, configuração segura | Recebe `MYSQL_USER` |
-| `SPRING_DATASOURCE_PASSWORD` | ACI, configuração segura | Recebe `MYSQL_PASSWORD` |
-
-Em **Pipelines → pipeline → Edit → Variables**, adicione `MYSQL_USER` e `MYSQL_PASSWORD` e marque **Keep this value secret** nos dois. As credenciais ACR são obtidas em variáveis de processo pela identidade da conexão de serviço; não estão versionadas. Evite `set -x`, impressão de variáveis e abertura de valores secretos durante a gravação.
-
-## 11. Configuração e etapas da pipeline
-
-1. Abra **Pipelines → New pipeline → GitHub**.
-2. Autorize a integração e selecione `brunoferr10/zelo-sprint4-devops`.
-3. Selecione **Existing Azure Pipelines YAML file**, branch **master**, arquivo **`/azure-pipelines.yml`**.
-4. Configure as variáveis secretas da seção 10.
-5. Use **Save and run** para validar a primeira execução e autorize a conexão quando solicitado.
-6. Depois, faça alteração de código e push para comprovar o disparo automático. A execução inicial manual não substitui essa evidência.
-
-### CI — integração contínua
-
-| Etapa | Implementação | Evidência |
-|---|---|---|
-| Trigger | Push na branch `master` | Execução iniciada pelo commit enviado |
-| Checkout | `checkout: self` | Commit/branch identificados na execução |
-| Java | `JavaToolInstaller@0`, Java 21 | Task de configuração concluída |
-| Build e testes | `Maven@4`, `clean verify`, `-DfailIfNoTests=true` | Log Maven e aba Tests |
-| Relatórios | Publicação JUnit de `surefire-reports/TEST-*.xml` | Testes e resultados disponíveis |
-| Preparação | Copia o JAR da aplicação para `app/app.jar` | Task de preparação concluída |
-| Publicação | `PublishPipelineArtifact@1`, artefato `app` | Artefato acessível na execução |
-
-Sem sucesso nos testes, o CI falha e não libera o estágio CD. O Maven gera `target/zelo-api-1.0.0.jar`; o artefato publicado contém `app.jar`.
-
-### CD — implantação contínua
-
-| Etapa | Implementação | Evidência |
-|---|---|---|
-| Dependência | `dependsOn: CI`, sucesso e branch `master` | Estágio iniciado após CI aprovado |
-| Download | `DownloadPipelineArtifact@2`, execução atual, artefato `app` | Log de download do JAR |
-| Conexão Azure | `AzureCLI@2` com conexão de serviço | Task autenticada sem credencial no código |
-| Imagem | ACR Tasks usando `Dockerfile.cicd` e o JAR baixado | Imagem no ACR com tag BuildId |
-| Deploy | `az container create` atualiza o ACI da aplicação | Imagem/tag atualizada no Portal Azure |
-| Configuração | Datasource e credenciais seguras no container | Aplicação conecta ao MySQL |
-| Saúde | Tentativas de acesso ao `/actuator/health` | Task aprovada quando a API responde |
-
-CI e CD são estágios de uma mesma pipeline YAML. O CD roda automaticamente após a publicação bem-sucedida do artefato na execução atual; não é uma Release clássica separada. Não há aprovação manual configurada no YAML. Confira que nenhuma configuração externa esteja bloqueando a execução automática.
-
-## 12. Testes automatizados
+Substitua os arquivos antigos pelo conteúdo deste pacote, preservando .git. Remova também docker/, docker-compose.yml e os scripts antigos: copiar por cima sem remover deixa arquivos obsoletos.
 
 ```bash
-java -version
-mvn -version
-mvn -B clean verify -DfailIfNoTests=true
-```
-
-Use Java 21. A classe `CrudIntegrationTest` contém três cenários:
-
-| Cenário | Verificação |
-|---|---|
-| CRUD completo com relacionamento | POST/GET/PUT/DELETE de pet e cuidado, alteração observável e 404 após exclusão |
-| Entrada inválida | POST de pet sem campos obrigatórios retorna 400 |
-| Recurso inexistente | Busca por pet inexistente retorna 404 |
-
-Os testes sobem o contexto Spring e executam requisições com MockMvc, persistindo em H2 isolado. Não dependem do banco Azure. Eles validam o fluxo da aplicação, mas não comprovam conectividade nem compatibilidade de produção: faça também o CRUD no MySQL Azure. Mostre a aba **Tests** no vídeo; não basta haver arquivos de teste no repositório.
-
-## 13. Conferência do deploy e URLs
-
-```bash
-az resource list --resource-group rg-zelo-s4-rm563489 --output table
-
-az container show --resource-group rg-zelo-s4-rm563489 \
-  --name rm563489-zelos4-app \
-  --query '{imagem:containers[0].image,url:ipAddress.fqdn,estado:instanceView.state}' --output table
-
-APP_FQDN=$(az container show --resource-group rg-zelo-s4-rm563489 \
-  --name rm563489-zelos4-app --query ipAddress.fqdn --output tsv)
-
-curl -fsS "http://${APP_FQDN}:8080/actuator/health"
-```
-
-| Acesso | Endereço |
-|---|---|
-| Página inicial | `http://FQDN_RETORNADO:8080/` |
-| Swagger | `http://FQDN_RETORNADO:8080/swagger-ui/index.html` |
-| Pets | `http://FQDN_RETORNADO:8080/api/pets` |
-| Cuidados | `http://FQDN_RETORNADO:8080/api/cuidados` |
-| Saúde | `http://FQDN_RETORNADO:8080/actuator/health` |
-
-Use o FQDN realmente retornado pela Azure. No Portal mostre recursos da Sprint 4, imagem/tag do ACI, repositório de imagens no ACR e banco ativo. Se recriar o banco, confira DNS e conectividade da aplicação.
-
-## 14. Endpoints e demonstração CRUD
-
-| Método | Endpoint | Resultado esperado no fluxo válido |
-|---|---|---|
-| GET | `/api/pets` | 200, lista de pets |
-| GET | `/api/pets/{id}` | 200; 404 se inexistente |
-| POST | `/api/pets` | 201 com ID gerado |
-| PUT | `/api/pets/{id}` | 200 com dados atualizados |
-| DELETE | `/api/pets/{id}` | 204, sem corpo |
-| GET | `/api/cuidados` | 200, lista de cuidados |
-| GET | `/api/cuidados?petId={id}` | 200, cuidados do pet |
-| GET | `/api/cuidados/{id}` | 200; 404 se inexistente |
-| POST | `/api/cuidados` | 201 com ID gerado |
-| PUT | `/api/cuidados/{id}` | 200 com dados atualizados |
-| DELETE | `/api/cuidados/{id}` | 204, sem corpo |
-
-Entradas que violam Bean Validation retornam 400. Para criar cuidado é necessário um pet existente. Exclua os cuidados antes do pet para respeitar a chave estrangeira.
-
-Defina `APP_FQDN` conforme a seção 13. Nos exemplos abaixo, **substitua cada ID 3 pelo ID correto retornado no seu POST**; o ID do cuidado pode ser diferente do ID do pet. Na gravação execute os SELECTs da seção seguinte entre as operações.
-
-### Pets
-
-```bash
-# CREATE
-curl -X POST "http://${APP_FQDN}:8080/api/pets" \
-  -H "Content-Type: application/json" \
-  -d '{"nome":"Mel","especie":"Cao","raca":"Beagle","dataNascimento":"2023-04-12","nomeTutor":"Carla Souza"}'
-
-# READ geral e individual (substitua 3 pelo ID retornado)
-curl "http://${APP_FQDN}:8080/api/pets"
-curl "http://${APP_FQDN}:8080/api/pets/3"
-
-# UPDATE
-curl -X PUT "http://${APP_FQDN}:8080/api/pets/3" \
-  -H "Content-Type: application/json" \
-  -d '{"nome":"Mel","especie":"Cao","raca":"Beagle","dataNascimento":"2023-04-12","nomeTutor":"Carla Souza Ferreira"}'
-
-# DELETE: execute somente depois de apagar o cuidado relacionado
-curl -i -X DELETE "http://${APP_FQDN}:8080/api/pets/3"
-```
-
-### Cuidados
-
-```bash
-# CREATE relacionado ao pet 3
-curl -X POST "http://${APP_FQDN}:8080/api/cuidados" \
-  -H "Content-Type: application/json" \
-  -d '{"petId":3,"tipo":"EXAME","descricao":"Hemograma preventivo anual","dataPrevista":"2026-11-05","status":"PENDENTE"}'
-
-# READ geral, individual e filtrado por pet
-curl "http://${APP_FQDN}:8080/api/cuidados"
-curl "http://${APP_FQDN}:8080/api/cuidados/3"
-curl "http://${APP_FQDN}:8080/api/cuidados?petId=3"
-
-# UPDATE
-curl -X PUT "http://${APP_FQDN}:8080/api/cuidados/3" \
-  -H "Content-Type: application/json" \
-  -d '{"petId":3,"tipo":"EXAME","descricao":"Hemograma preventivo realizado","dataPrevista":"2026-11-05","status":"CONCLUIDO"}'
-
-# DELETE primeiro, por causa da chave estrangeira
-curl -i -X DELETE "http://${APP_FQDN}:8080/api/cuidados/3"
-```
-
-Use os IDs efetivamente retornados pelo POST, sem presumir que serão 3.
-
-
-## 15. Evidências de persistência no MySQL
-
-Abra um segundo terminal e acesse o banco real em nuvem:
-
-```bash
-az container exec --resource-group rg-zelo-s4-rm563489 \
-  --name rm563489-zelos4-db --exec-command /bin/bash
-```
-
-Dentro do container, execute usando o mesmo usuário definido na preparação:
-
-```bash
-mysql -u SEU_USUARIO_MYSQL -p zelo
-```
-
-Digite a senha no prompt. No cliente MySQL, troque os números abaixo pelos IDs reais retornados pela API:
-
-```sql
-USE zelo;
-SET @pet_id = 3;
-SET @cuidado_id = 3;
-
--- Depois do POST do pet e durante a consulta GET:
-SELECT id, nome, especie, raca, data_nascimento, nome_tutor
-FROM pets WHERE id = @pet_id;
-
--- Depois do POST do cuidado e durante a consulta GET:
-SELECT id, pet_id, tipo, descricao, data_prevista, status
-FROM cuidados WHERE id = @cuidado_id;
-
--- Depois de cada PUT, execute o SELECT correspondente novamente.
--- A alteração de nome_tutor / descricao / status deve estar visível.
-
--- Consulta do relacionamento antes da exclusão:
-SELECT p.id, p.nome, p.nome_tutor, c.id AS cuidado_id, c.tipo, c.status
-FROM pets p JOIN cuidados c ON c.pet_id = p.id
-WHERE p.id = @pet_id;
-
--- Depois de DELETE /api/cuidados/{id}: deve retornar zero linhas.
-SELECT * FROM cuidados WHERE id = @cuidado_id;
-
--- Depois de DELETE /api/pets/{id}: deve retornar zero linhas.
-SELECT * FROM pets WHERE id = @pet_id;
-```
-
-Sequência recomendada para comprovação: **POST → SELECT; GET → SELECT; PUT → SELECT atualizado; DELETE → SELECT sem registro**. Faça isso para as duas entidades. Inicialmente crie o pet e depois o cuidado; ao excluir, inverta a ordem. Mostre o comando e o resultado legíveis no vídeo. Resposta da API sozinha não substitui SELECT no banco.
-
-Azure Files preserva os dados em `/var/lib/mysql`. Como verificação adicional de persistência, pode reiniciar o ACI do banco e consultar os registros novamente, aguardando o banco ficar pronto. Essa prova é complementar ao CRUD obrigatório.
-
-## 16. Alteração de código para comprovar automação
-
-1. Mostre a página atual acessada pelo FQDN Azure.
-2. Na IDE abra `src/main/resources/static/index.html`.
-3. Altere um título visível, por exemplo para `Zelo Sprint 4 - Deploy automatico validado`.
-4. Salve e envie para `master`:
-
-```bash
-git switch master
-git add src/main/resources/static/index.html
-git commit -m "feat: atualizar titulo para demonstrar deploy automatico"
+git add -A
+git commit -m "feat: migrar DevOps para Web App Linux e Oracle"
 git push origin master
 ```
 
-5. Mostre a execução iniciando automaticamente pelo commit.
-6. Acompanhe e explique as tasks de CI e CD, resultados dos testes e artefato.
-7. No Portal compare a imagem do ACI com o BuildId dessa execução.
-8. Recarregue a URL Azure sem cache e mostre o novo título.
+Não precisa force se estiver trabalhando no clone atualizado. Nenhum segredo deve ser salvo no Git. Não use senha real no .env.example.
 
-**Alteração somente no README não atende a essa demonstração.** Não clique em Run para simular disparo automático após o push.
+## 7. Criar a VM Ubuntu
 
-## 17. Roteiro do vídeo
+A escolha Linux adapta a estação Windows do script da aula; o fluxo Java Web App/Oracle segue o exemplo fornecido. VM não é exigida como destino de entrega.
 
-Grave em **720p ou superior**, com áudio claro, explicação por voz e sem legendas. Prepare as ferramentas antes da gravação e revise o arquivo gravado antes de publicar. Não há limite fixo de duração; priorize evidências claras.
-
-| Sequência | Mostrar e explicar |
-|---|---|
-| 1 | Solução, integrantes, stack, IDE, GitHub, Azure DevOps, Portal e banco |
-| 2 | Arquitetura com personas, recursos, conexões e ordem CI/CD |
-| 3 | Projeto privado, configuração, nível Basic e acesso administrativo do professor |
-| 4 | Pipeline e finalidade de cada job/task, trigger master e proteção de variáveis |
-| 5 | Página antes da mudança, alteração no código, commit e push |
-| 6 | Disparo automático e explicação das etapas durante a execução |
-| 7 | Resultados dos testes e artefato publicado no Azure DevOps |
-| 8 | CD e recursos atualizados no Portal, incluindo tag da imagem no ACI |
-| 9 | Página Azure com alteração visível |
-| 10 | CRUD completo de pets e cuidados com SELECTs após cada operação |
-| 11 | Conferência dos links e acesso ao vídeo |
-
-A operação CRUD pode usar Swagger ou Postman. O terminal MySQL deve mostrar a persistência. Evite exibir valores de segredos, tokens e dados pessoais de terceiros.
-
-## 18. PDF obrigatório
-
-O PDF final deve conter **somente**:
-
-- Nome completo, RM e turma de cada integrante (seção 1).
-- Link deste repositório GitHub.
-- Link real do vídeo YouTube acessível ao professor.
-- Link real do projeto Azure DevOps com acesso do professor.
-
-O conteúdo técnico e o diagrama ficam neste README/repositório. O arquivo `docs/ENTREGA.md` serve como base; não entregue com links pendentes. Gere o PDF depois de criar o projeto Azure DevOps e publicar o vídeo.
-
-## 19. Checklist de revisão antes de entregar
-
-| Requisito | Onde comprovar | Estado |
-|---|---|---|
-| Nomes, RMs e turmas | Seção 1 e PDF final | Dados documentados; conferir grafia com a equipe |
-| Descrição e stack | Seções 2 e 4 | Documentadas |
-| Arquitetura e fluxo numerado | Seção 5 e SVG | Incluídos; revisar legibilidade no GitHub/vídeo |
-| Banco permitido na nuvem | MySQL ACI e SELECTs | Pendente de execução |
-| Projeto com nome/descrição/privacidade/processo | Azure DevOps | Pendente de configuração |
-| Professor Basic e administrador | Azure DevOps Users/Permissions | Pendente de configuração |
-| Repositório correto e branch master | GitHub e pipeline | Conferir conexão na Azure |
-| Build e testes automáticos | Logs e aba Tests | Implementados; pendente de execução |
-| Artefato publicado no Azure DevOps | Artefato app/app.jar | Configurado; pendente de execução |
-| CD automático após artefato | Stage CD e ACI | Configurado; pendente de execução |
-| Usuário, senha e tokens protegidos | Variables/conexões/ACI | Conferir configuração e logs |
-| Mudança no código com efeito no app Azure | Vídeo antes/depois | Pendente de gravação |
-| Recursos atualizados no Portal | Vídeo e imagem/tag ACI | Pendente de gravação |
-| CRUD com SELECT para cada operação | Swagger/Postman + MySQL | Pendente de execução/gravação |
-| Vídeo com qualidade e explicação falada | YouTube | Pendente |
-| PDF contendo apenas dados e três links | PDF final | Pendente |
-
-Atualize os estados após comprovar cada item. Um checklist preenchido não substitui evidências. CI/CD sem funcionar, entrega apenas em localhost ou professor sem acesso são falhas que podem zerar a avaliação conforme enunciado.
-
-## 20. Diagnóstico de problemas
-
-| Sintoma | Verificação / ação |
-|---|---|
-| Pipeline não inicia com push | Confirmar branch master, integração GitHub, YAML selecionado e trigger sem sobrescrita na interface |
-| Pipeline aguardando agente | Conferir capacidade Microsoft-hosted; se necessário solicitar paralelismo ou configurar agente próprio e ajustar pool |
-| Falha de compilação | Conferir Java 21, Maven e log da task |
-| Testes falhando | Abrir aba Tests e relatório Surefire; corrigir o erro antes de prosseguir |
-| Conexão de serviço não autorizada | Autorizar a pipeline e conferir assinatura, escopo e papel da identidade |
-| ACR Tasks não constrói imagem | Conferir permissão, disponibilidade/quota e logs da task |
-| Nome de recurso indisponível | Ajustar script 00 antes de provisionar e manter nomes consistentes |
-| Deploy ACI falha | Conferir quota/região, permissão e configuração do container |
-| Aplicação não fica saudável | Consultar logs da aplicação e banco, URL JDBC, credenciais e schema |
-| Erro no schema | `ddl-auto=validate` exige tabelas existentes; confirmar inicialização e volume correto |
-| Senha alterada mas banco rejeita | Conferir senha efetiva do banco já inicializado; variável de inicialização não redefine senha existente |
-| Página não mostra mudança | Conferir commit, BuildId, imagem/tag no ACI, URL e cache do navegador |
-| DELETE de pet falha por relacionamento | Excluir cuidados relacionados antes do pet |
+No seu Git Bash local, gere uma chave dedicada se ainda não tiver:
 
 ```bash
-az container logs -g rg-zelo-s4-rm563489 -n rm563489-zelos4-app
-az container logs -g rg-zelo-s4-rm563489 -n rm563489-zelos4-db
-az acr repository list -n zelos4acr563489 -o table
-az acr repository show-tags -n zelos4acr563489 --repository 563489-zelo-app -o table
+ssh-keygen -t ed25519 -f ~/.ssh/zelo_sprint4
+cat ~/.ssh/zelo_sprint4.pub
 ```
 
-## 21. Custos e encerramento
+Não sobrescreva uma chave existente. Guarde a chave privada e sua senha. Somente o conteúdo .pub é enviado ao Cloud Shell.
 
-ACR, ACI e armazenamento podem gerar cobrança. Verifique orçamento e mantenha os recursos disponíveis até a avaliação. Depois de confirmar que não são mais necessários, o comando abaixo remove **todo o grupo da Sprint 4**, inclusive armazenamento e dados:
+No Portal Azure abra Cloud Shell Bash. Clone o projeto atualizado:
 
 ```bash
-bash scripts/06-excluir-recursos.sh
+git clone --branch master https://github.com/brunoferr10/zelo-sprint4-devops.git
+cd zelo-sprint4-devops
+az account show -o table
+# Se necessario: az account set --subscription ID_DA_ASSINATURA
 ```
 
-Não execute durante a preparação ou antes da correção.
+Crie no Cloud Shell um arquivo de chave pública (cole a linha .pub do seu computador, nunca a chave privada):
 
-## 22. Referências
+```bash
+nano ~/zelo_sprint4.pub
+export SSH_PUBLIC_KEY_FILE=~/zelo_sprint4.pub
+# Substitua pelo IP PUBLICO do seu computador, nao pelo IP do Cloud Shell:
+export SSH_SOURCE_CIDR='SEU_IP_PUBLICO/32'
+# Ajuste se a assinatura exigir outra regiao:
+export LOCATION=canadacentral
+bash scripts/01-criar-vm-linux.sh
+```
 
-- Enunciado da Sprint 4 e materiais de aula fornecidos pelo Prof. João Menk: Azure Repos, conceitos de Azure Pipelines e exercício Java.
-- [Azure Pipelines — documentação oficial](https://learn.microsoft.com/azure/devops/pipelines/)
-- [Task Maven@4](https://learn.microsoft.com/azure/devops/pipelines/tasks/reference/maven-v4)
-- [Pipeline Artifacts](https://learn.microsoft.com/azure/devops/pipelines/artifacts/pipeline-artifacts)
-- [Variáveis de ambiente seguras no ACI](https://learn.microsoft.com/azure/container-instances/container-instances-environment-variables)
-- [Volume Azure Files no ACI](https://learn.microsoft.com/azure/container-instances/container-instances-volume-azure-files)
+O script cria rg-zelo-s4-vm, vm-zelo-sprint4, Ubuntu 24.04 x64, Standard_B2s, disco Standard SSD 32GB, SSH restrito ao IP informado e desligamento 02:30 UTC (23:30 Brasília). Tamanho/região sujeitos a quota, disponibilidade e custo; revise antes. Não é promessa de gratuidade.
+
+Com o IP retornado, conecte do Git Bash local:
+
+```bash
+ssh -i ~/.ssh/zelo_sprint4 bruno@IP_PUBLICO_DA_VM
+```
+
+## 8. Preparar ferramentas dentro da VM
+
+```bash
+git clone --branch master https://github.com/brunoferr10/zelo-sprint4-devops.git
+cd zelo-sprint4-devops
+bash scripts/02-preparar-ubuntu.sh
+java -version
+mvn -version
+az login --use-device-code
+az account show -o table
+```
+
+Configure Git com seu nome e e-mail antes de commits feitos na VM. Use VS Code Remote SSH ou editor de terminal. Configure autenticação GitHub por credencial/SSH sem colocar token no código ou no vídeo.
+
+## 9. Preparar Oracle FIAP
+
+Use suas credenciais Oracle FIAP, sem compartilhá-las no Git. Conexão de exemplo da aula: host oracle.fiap.com.br, porta 1521, service name ORCL. Confirme acesso e parâmetros vigentes na FIAP.
+
+Conecte com SQL Developer ou SQLcl ao schema do aluno e execute script_bd.sql uma vez, antes do primeiro deploy. O arquivo cria pets, cuidados, duas sequências e dados iniciais; não apaga objetos existentes. Se já houver tabelas com esses nomes, confira e faça backup/planeje migração antes de rodar; não execute DROP automaticamente. Esta preparação não altera a senha nem cria usuário no Oracle FIAP.
+
+A aplicação usa ddl-auto=validate: schema precisa estar correto. IDs usam sequências Oracle com allocationSize=1. Verifique conectividade tanto do cliente de consultas quanto do Web App; rede da FIAP pode restringir acesso. Sem conectividade Web App → Oracle não é possível concluir o deploy funcional.
+
+## 10. Criar Web App Linux
+
+Na VM autenticada na Azure, execute:
+
+```bash
+export LOCATION=canadacentral
+# Nome global: altere se estiver ocupado e mantenha o mesmo no YAML.
+export WEB_APP_NAME=zelo-s4-rm563489
+bash scripts/03-criar-webapp.sh
+```
+
+Cria rg-zelo-s4-webapp, plan-zelo-s4 (Linux B1), Web App Java SE 21, HTTPS obrigatório e startup java -jar /home/site/wwwroot/app.jar. B1 é pago; APP_SKU pode ser ajustado se o plano/região suportar. O Oracle FIAP permanece externo. Não é necessário expor portas 8080/3306 da VM.
+
+## 11. Projeto Azure DevOps e professor
+
+| Campo | Valor |
+|---|---|
+| Project Name | Sprint 4 – Azure DevOps |
+| Description | Projeto para entrega da Sprint 4 do professor João Menk; adicionar os cinco nomes, RMs e turma 2TDSR da seção 1 |
+| Visibility | Private |
+| Version control | Git |
+| Work item process | Scrum ou Agile |
+
+Em Organization settings > Users convide o professor com e-mail institucional confirmado e nível Basic, concedendo acesso ao projeto. Em Project settings > Permissions > Project Administrators adicione o professor, conforme print da entrega. Confirme acesso ao projeto e Pipelines. Mantenha até a avaliação.
+
+Crie Service connection Azure Resource Manager, preferencialmente Workload identity federation, para assinatura e grupo rg-zelo-s4-webapp. Nome MyAzureSubscription. Autorize a pipeline. Identidade precisa gerenciar Web App e deploy no grupo (por exemplo Contributor no grupo, sujeito às políticas da assinatura).
+
+## 12. Pipeline e segredos
+
+Pipelines > New pipeline > GitHub > brunoferr10/zelo-sprint4-devops > Existing YAML > master > /azure-pipelines.yml.
+
+Em Variables configure os três valores abaixo e marque todos como secretos:
+
+| Variável | Valor |
+|---|---|
+| SPRING_DATASOURCE_URL | jdbc:oracle:thin:@//oracle.fiap.com.br:1521/ORCL (confirmar na FIAP) |
+| SPRING_DATASOURCE_USERNAME | Usuário Oracle do schema preparado |
+| SPRING_DATASOURCE_PASSWORD | Senha Oracle |
+
+No YAML, WEB_APP_NAME deve corresponder ao nome efetivo do Web App, APP_RG ao grupo e azureSubscription à conexão de serviço. São nomes não sensíveis. Não use set -x e não abra valores secretos na gravação.
+
+| CI | Resultado |
+|---|---|
+| Trigger master | Cada push na master inicia execução |
+| JavaToolInstaller@0 | Java 21 |
+| Maven@4 clean verify | Build e oito testes de integração MockMvc com H2 Oracle-mode |
+| JUnit | Resultados na aba Tests |
+| PublishPipelineArtifact@1 | Artefato app contendo app.jar após aprovação dos testes |
+
+| CD automático | Resultado |
+|---|---|
+| dependsOn CI + succeeded + master | Só inicia com CI aprovado na master |
+| DownloadPipelineArtifact@2 | Baixa JAR da execução atual |
+| AzureCLI@2 | Configura datasource usando arquivo temporário privado, removido ao terminar |
+| AzureWebApp@1 | Implanta JAR no Web App Linux Java 21 |
+| Verificação Actuator | Falha se app não responder no prazo |
+
+Use Save and run para primeira validação; depois prove o trigger com push de alteração de código. Não há aprovação manual no YAML. Se organização não tiver capacidade de agente hospedado, solicite paralelismo ou configure agente próprio e ajuste pool. A VM de trabalho não vira agente automaticamente.
+
+## 13. Testes e validação
+
+```bash
+mvn -B clean verify -DfailIfNoTests=true
+```
+
+Testes originais (3): CRUD completo Pets/Cuidados com relacionamento, atualização e 404 após exclusão; pet inválido retorna 400; pet inexistente retorna 404. Novos testes (5): filtros combinados e limites inclusivos/ordenação; resumo com atraso calculado sem dupla contagem; resumo filtrado e vazio; período invertido em ambas as rotas; status/data inválidos. H2 é apenas teste, não banco de entrega. H2 Oracle-mode não substitui integração real Oracle.
+
+A preparação do pacote não executou recursos Azure nem acessou Oracle FIAP. Sintaxe e consistência foram verificadas. A tentativa de Maven neste ambiente foi bloqueada pela conexão de rede ao repositório de dependências e o runtime disponível era Java 17; não houve execução de testes concluída em Java 21. Os resultados de build/testes devem ser validados na VM ou pipeline antes da gravação. Não declare aprovação sem execução real.
+
+Após CD, acesse URL HTTPS retornada pelo Web App: /, /swagger-ui/index.html, /actuator/health, /api/pets e /api/cuidados. Execute bash scripts/05-testar-webapp.sh autenticado na Azure.
+
+## 14. CRUD e evidência SQL
+
+Use Swagger ou coleção Postman com base URL https://HOST_REAL_DO_WEBAPP (sem :8080). Pets e Cuidados oferecem GET geral e /{id}, POST, PUT /{id} e DELETE /{id}. Cuidados também aceita GET ?petId=ID. POST retorna 201, GET/PUT 200 e DELETE 204 no fluxo válido; 400 para validação e 404 para recurso inexistente.
+
+POST/PUT pet:
+
+```json
+{"nome":"Mel","especie":"Cao","raca":"Beagle","dataNascimento":"2023-04-12","nomeTutor":"Bruno Ferreira"}
+```
+
+POST/PUT cuidado (substitua petId pelo ID real):
+
+```json
+{"petId":3,"tipo":"CONSULTA","descricao":"Retorno preventivo","dataPrevista":"2026-12-01","status":"PENDENTE"}
+```
+
+No PUT altere nomeTutor e status/descrição para mostrar a mudança. Use IDs retornados, sem presumir ID 3. Execute consultas no mesmo schema Oracle:
+
+```sql
+SELECT USER FROM dual;
+SELECT * FROM pets WHERE id = 3;
+SELECT * FROM cuidados WHERE id = 3;
+```
+
+Para cada entidade: POST + SELECT do registro; GET + SELECT; PUT + SELECT atualizado; DELETE + SELECT sem linhas. Exclua cuidado antes do pet. docs/consultas-evidencia.sql inclui relacionamento e listas. Mostre comandos e resultados legíveis no vídeo.
+
+## 15. Provar mudança de código e roteiro do vídeo
+
+Prepare IDE/SSH, GitHub, Azure DevOps, Portal, Swagger e cliente Oracle. Vídeo 720p ou superior, áudio claro, explicação por voz, sem legendas.
+
+1. Mostre proposta, stack, arquitetura numerada, personas e ferramentas.
+2. Mostre projeto privado, descrição e acesso Basic/administrador do professor.
+3. Abra pipeline e explique cada task, trigger, testes, artefato e segredos protegidos.
+4. Mostre página atual online; altere título visível em src/main/resources/static/index.html.
+5. Faça commit/push na master e mostre início automático.
+6. Durante a execução explique CI/CD, abra logs, Tests e artefato app.jar.
+7. Mostre Web App no Portal e o deploy concluído. Abra a página HTTPS com título novo, recarregando sem cache.
+8. Faça CRUD completo com SELECT após cada operação no Oracle.
+9. Confira acesso ao vídeo e links finais.
+
+```bash
+git add src/main/resources/static/index.html
+git commit -m "feat: demonstrar atualizacao automatica do titulo"
+git push origin master
+```
+
+Alterar somente README não atende à evidência de código. A primeira execução manual não substitui o push que inicia automaticamente CI/CD. Demonstre também a evolução funcional: aplique filtros no painel, confira o resumo e compare com SELECTs no Oracle.
+
+### Evidência da evolução no Oracle
+
+```sql
+SELECT id, pet_id, status, data_prevista FROM cuidados
+WHERE status = 'PENDENTE'
+  AND data_prevista >= DATE '2026-11-01'
+  AND data_prevista < DATE '2027-01-01'
+ORDER BY data_prevista, id;
+-- Resumo sem filtros: compara a classificacao com o dia UTC usado pela API.
+SELECT COUNT(*) AS total,
+ SUM(CASE WHEN status='PENDENTE' AND data_prevista >= TRUNC(CAST(SYS_EXTRACT_UTC(SYSTIMESTAMP) AS DATE)) THEN 1 ELSE 0 END) AS pendentes,
+ SUM(CASE WHEN status='ATRASADO' OR (status='PENDENTE' AND data_prevista < TRUNC(CAST(SYS_EXTRACT_UTC(SYSTIMESTAMP) AS DATE))) THEN 1 ELSE 0 END) AS atrasados,
+ SUM(CASE WHEN status='CONCLUIDO' THEN 1 ELSE 0 END) AS concluidos,
+ SUM(CASE WHEN status='CANCELADO' THEN 1 ELSE 0 END) AS cancelados
+FROM cuidados;
+```
+
+Adicione os mesmos predicados de pet/status/período ao SQL ao comparar um resumo filtrado. Os resultados de SUM podem ser NULL sem registros; a API retorna zero. Essa evidência é adicional ao CRUD obrigatório.
+
+## 16. Checklist e PDF
+
+- [ ] Validar filtros, resumo e painel desta base Java própria sem regredir o CRUD ou CI/CD.
+- [ ] VM/ferramentas, schema Oracle e Web App configurados.
+- [ ] Projeto privado e professor Basic com acesso ao projeto conforme print.
+- [ ] Push master dispara CI, testes aparecem e artefato é publicado.
+- [ ] CD consome artefato automaticamente e deploy fica saudável.
+- [ ] Usuário/senha/tokens protegidos, ausentes do Git e vídeo.
+- [ ] Diagrama corresponde aos recursos realmente implantados.
+- [ ] Vídeo mostra mudança de código, cada task, Portal e CRUD com SELECT.
+- [ ] URLs reais preenchidas e acessíveis ao professor.
+- [ ] PDF final apenas nomes/RMs/turmas e links GitHub, YouTube e Azure DevOps.
+
+Preencha docs/ENTREGA.md e gere o PDF quando os links existirem. Não entregar PDF com placeholders. CI/CD sem funcionar, localhost ou falta de acesso do professor podem zerar a avaliação conforme enunciado; documentação não substitui evidências.
+
+## 17. Diagnóstico e custos
+
+Falha de quota/região VM ou Web App: ajuste região/tamanho/plano permitido. Nome Web App indisponível: altere nome no script/YAML. Falha CI: confira Java 21 e Tests. Falha CD: confira autorização da conexão, artefato, nome do app e logs. Falha Oracle: confira credenciais, URL, schema/sequências e acesso de rede. ORA de objeto existente: não execute DROP; revise schema.
+
+```bash
+az webapp log config -g rg-zelo-s4-webapp -n zelo-s4-rm563489 --application-logging filesystem --level information
+az webapp log tail -g rg-zelo-s4-webapp -n zelo-s4-rm563489
+```
+
+VM, disco, IP e App Service Plan podem gerar cobrança. Desaloque VM quando não estiver usando (scripts/06-encerrar.sh); parar/desalocar VM não elimina custo do plano Web App nem do disco/IP. Preserve ambiente de entrega até avaliação. Limpeza dos dois grupos é manual e separada; Oracle FIAP não é removido pelos scripts.
+
+## 18. Referências
+
+Materiais fornecidos do Prof. João Menk: Azure Pipelines Java, YAML PlayMix e preparação de infraestrutura. Estação de trabalho adaptada para Ubuntu por escolha do grupo; não é cópia literal da VM Windows do material.
+
+- https://learn.microsoft.com/azure/devops/pipelines/tasks/reference/azure-web-app-v1
+- https://learn.microsoft.com/azure/app-service/configure-language-java-deploy-run
+- https://learn.microsoft.com/azure/virtual-machines/linux/quick-create-cli
+- https://learn.microsoft.com/cli/azure/vm

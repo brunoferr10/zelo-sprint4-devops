@@ -8,7 +8,8 @@ import java.time.LocalDate;
 @Table(name = "cuidados")
 public class Cuidado {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @SequenceGenerator(name = "zelo_cuidado_seq", sequenceName = "zelo_cuidado_seq", allocationSize = 1)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "zelo_cuidado_seq")
     private Long id;
 
     @NotNull
