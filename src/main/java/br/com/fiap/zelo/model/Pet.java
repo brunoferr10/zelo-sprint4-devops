@@ -11,8 +11,8 @@ import java.util.List;
 @Table(name = "pets")
 public class Pet {
     @Id
-    @SequenceGenerator(name = "zelo_pet_seq", sequenceName = "zelo_pet_seq", allocationSize = 1)
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "zelo_pet_seq")
+
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @NotBlank @Size(max = 100)
