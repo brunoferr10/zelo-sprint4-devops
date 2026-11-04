@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
+# Somente depois da avaliacao. A VM hospeda o banco: desliga-lo interrompe o app.
 set -euo pipefail
 source "$(dirname "$0")/00-config.sh"
-# Desaloca somente a VM. Disco e IP podem continuar gerando custo.
+if [[ "${ENCERRAR_APOS_AVALIACAO:-}" != "SIM" ]]; then
+  echo "Nenhuma alteracao. A VM hospeda o MySQL. Apos a avaliacao, defina ENCERRAR_APOS_AVALIACAO=SIM."
+  exit 0
+fi
 az vm deallocate -g "$VM_RG" -n "$VM_NAME"
-# Depois da avaliacao, exclusao MANUAL e separada dos grupos:
-# az group delete -n rg-zelo-s4-vm --yes
-# az group delete -n rg-zelo-s4-webapp --yes
-# Oracle FIAP nao e excluido por estes scripts.
+echo "VM desalocada; banco indisponivel. Plano Web App, disco e IP podem continuar gerando custo."
+# Exclusao definitiva dos grupos e volumes nao e automatizada aqui.

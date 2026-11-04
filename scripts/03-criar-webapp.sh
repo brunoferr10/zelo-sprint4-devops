@@ -3,7 +3,9 @@
 set -euo pipefail
 source "$(dirname "$0")/00-config.sh"
 az provider register --namespace Microsoft.Web --wait
-az group create -n "$APP_RG" -l "$LOCATION" -o none
+if ! az group show -n "$APP_RG" -o none 2>/dev/null; then
+  az group create -n "$APP_RG" -l "$LOCATION" -o none
+fi
 az appservice plan create -g "$APP_RG" -n "$APP_PLAN" -l "$LOCATION" --is-linux --sku "$APP_SKU" -o none
 az webapp create -g "$APP_RG" -n "$WEB_APP_NAME" --plan "$APP_PLAN" --runtime 'JAVA:21-java21' -o none
 az webapp update -g "$APP_RG" -n "$WEB_APP_NAME" --https-only true -o none
